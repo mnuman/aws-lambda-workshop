@@ -1,6 +1,6 @@
 # Cloud 9
 .c9/
-**/.debug/
+**/.debug/**
 # Python .gitignore
 Logs
 logs

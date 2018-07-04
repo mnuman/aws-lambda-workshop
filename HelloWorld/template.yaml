@@ -6,8 +6,9 @@ Resources:
     Type: 'AWS::Serverless::Function'
     Properties:
       Handler: HelloWorld/lambda_function.lambda_handler
+      FunctionName: HelloWorld
       Runtime: python3.6
-      Description: ''
+      Description: 'This is my super duper HelloWorld function!'
       MemorySize: 128
       Timeout: 15
       CodeUri: .debug/
