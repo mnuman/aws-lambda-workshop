@@ -1,0 +1,13 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Description: An AWS Serverless Specification template describing your function.
+Resources:
+  S3ImageManipulator:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      Handler: S3ImageManipulator/index.handler
+      Runtime: nodejs6.10
+      Description: ''
+      MemorySize: 1024
+      Timeout: 15
+      Role: 'arn:aws:iam::612457436284:role/S3ImageManipulator'

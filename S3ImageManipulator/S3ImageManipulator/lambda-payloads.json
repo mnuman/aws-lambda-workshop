@@ -1,0 +1,14 @@
+{
+    "S3ImageManipulator": {
+        "lambda": {
+            "aap": "123",
+            "noot": 123,
+            "mies": false,
+            "list": [
+                12,
+                13,
+                14
+            ]
+        }
+    }
+}
