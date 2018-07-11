@@ -1,13 +1,33 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: 'AWS::Serverless-2016-10-31'
-Description: An AWS Serverless Specification template describing your function.
+Description: This is my image manipulator
 Resources:
-  S3ImageManipulator:
+  S3LambdaImageManipulator:
     Type: 'AWS::Serverless::Function'
     Properties:
       Handler: S3ImageManipulator/index.handler
+      FunctionName: S3ImageManipulator
       Runtime: nodejs6.10
-      Description: ''
+      CodeUri: .
+      Description: This is my image manipulator
       MemorySize: 1024
-      Timeout: 15
+      Timeout: 60
       Role: 'arn:aws:iam::612457436284:role/S3ImageManipulator'
+      Events:
+        ObjectCreatedEvent:
+          Type: S3
+          Properties:
+            Bucket:
+              Ref: MyInputBucket
+            Events: s3:ObjectCreated:*
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: images/
+                  - Name: suffix
+                    Value: jpg
+  MyInputBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: mn-image-bucket

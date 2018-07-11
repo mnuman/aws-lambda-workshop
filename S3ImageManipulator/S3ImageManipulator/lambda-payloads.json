@@ -10,5 +10,21 @@
                 14
             ]
         }
+    },
+    "S3LambdaImageManipulator": {
+        "lambda": {
+            "Records": [
+                {
+                    "s3": {
+                        "bucket": {
+                            "name": "mn-image-bucket"
+                        },
+                        "object": {
+                            "key": "images/CANTONA.jpg"
+                        }
+                    }
+                }
+            ]
+        }
     }
 }
