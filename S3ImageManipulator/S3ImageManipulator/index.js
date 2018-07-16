@@ -1,75 +1,104 @@
+const async = require('async');
 const AWS = require('aws-sdk');
-const util = require('util');
 const jimp = require('jimp');
+const S3 = new AWS.S3();
+
+function downloadS3Object(S3Params, callback){
+  console.time('S3GetObject');
+  S3.getObject(S3Params, callback);
+  console.timeEnd('S3GetObject');
+}
+
+function loadImageFromFile(S3Object, callback){
+  console.time('loadImageFromFile');
+  jimp.read(S3Object.Body, callback);
+  console.timeEnd('loadImageFromFile');
+}
+
+
+function imageToBuffer(image, callback){
+  console.time('imageToBuffer');
+  image.getBuffer(jimp.AUTO, callback);
+  console.timeEnd('imageToBuffer');
+}
+
+function uploadS3Object(params, image, next){
+  console.time('uploadS3Object');
+  // augment params for request
+  params.Key = 'transformed/' + params.Key.split('/')[1];
+  params.Body = image;
+  params.ContentType = 'image/jpeg';  // specify the mime type for easy access
+  params.ACL = 'public-read';         // set public access for browser viewing
+  S3.putObject(params, next);
+  console.timeEnd('uploadS3Object');
+}
+
+function handleError(err, next){
+  if (err){
+      console.log('Error:', err);
+      throw(err);
+  } else
+    console.log('All OK');
+}
+
+/* Miscellaneous transformation functions, see Python examples at https://t04glovern.github.io/2016/01/python-image-manipulation
+ * Image is represented as RGB+A, A=opacity/translucency
+ * Need to round the RGB values to integers, must be < 256
+ * Invert   : (R,G,B,A) -> 255-R,255-G,255-B,A)
+ * Grayscale: (R,G,B,A) -> g = sum(R,G,B)/3; (g,g,g,A)
+ * Sepia    : (R,G,B,A) -> v = 0.3 * R + 0.59 * G + 0.11 * B;  (2*v, 1.5*v, v, A)
+ * 
+ *
+ */
+function invertImage(image, callback){
+  console.time('invertImage');
+  image.scan(0,0,image.bitmap.width, image.bitmap.height, (x,y,idx) => {
+      image.bitmap.data[ idx + 0 ] = 255 - image.bitmap.data[ idx + 0 ]; // Red
+      image.bitmap.data[ idx + 1 ] = 255 - image.bitmap.data[ idx + 1 ]; // Green
+      image.bitmap.data[ idx + 1 ] = 255 - image.bitmap.data[ idx + 2 ]; // Blue
+  }, callback);
+  console.timeEnd('invertImage');
+}
+
+function grayImage(image, callback){
+  console.time('grayImage');
+  var val = 0;
+  image.scan(0,0,image.bitmap.width, image.bitmap.height, (x,y,idx) => {
+      val =  Math.round((image.bitmap.data[ idx + 0 ] + image.bitmap.data[ idx + 1 ] + image.bitmap.data[ idx + 2 ]) / 3);
+      image.bitmap.data[ idx + 0 ] = val; // Red
+      image.bitmap.data[ idx + 1 ] = val; // Green
+      image.bitmap.data[ idx + 2 ] = val; // Blue
+  }, callback);
+  console.timeEnd('grayImage');
+}
+
+function sepia(image, callback){
+  console.time('sepia');
+  var val = 0;
+  image.scan(0,0,image.bitmap.width, image.bitmap.height, (x,y,idx) => {
+      val =  0.3 * image.bitmap.data[ idx + 0 ] + 0.59 * image.bitmap.data[ idx + 1 ] + 0.11 * image.bitmap.data[ idx + 2 ];
+      image.bitmap.data[ idx + 0 ] = Math.min(Math.round(2*val),255);     // Red
+      image.bitmap.data[ idx + 1 ] = Math.min(Math.round(1.5*val),255);;  // Green
+      image.bitmap.data[ idx + 2 ] = Math.min(Math.round(val),255);;      // Blue
+  }, callback);
+  console.timeEnd('sepia');
+}
 
 exports.handler = (event, context, callback) => {
-    console.log(util.inspect(event, { showHidden: true, depth: null }));
-    const S3 = new AWS.S3();
-    const bucket = event.Records[0].s3.bucket.name;
-    const filekey = event.Records[0].s3.object.key;
-
-    var params = {
-      Bucket: bucket,
-      Key: filekey
-     };    
-
-    S3.getObject(params, (err, data) => {
-        if (err) {
-            console.log(err);
-            callback(err);
-        } else {
-            console.log("File size: " + data.ContentLength);
-            jimp.read(data.Body, (err, image) => {
-                if (err) {
-                    console.log(err);
-                    callback(err);
-                } else {
-                    // here we can run image.scan and apply the function to every pixel in the range
-                    // this lists some common manipulations
-                    console.log("Image: " + image.bitmap.width + "x" + image.bitmap.height);
-                    image.scan(0, 0, image.bitmap.width, image.bitmap.height, function (x, y, idx) {
-                            // x, y is the position of this pixel on the image
-                            // idx is the position start position of this rgba tuple in the bitmap Buffer
-                            // this is the image
-                            /* Invert: RGB = 255 _RGB, for each pixel
-                             */
-                            this.bitmap.data[ idx + 0 ] = 255 - this.bitmap.data[ idx + 0 ]; // RED
-                            this.bitmap.data[ idx + 1 ] = 255 - this.bitmap.data[ idx + 1 ]; // GREEN
-                            this.bitmap.data[ idx + 2 ] = 255 - this.bitmap.data[ idx + 2 ]; // BLUE
-                    });
-                    image.write('/tmp/sepia.jpg', (err, data) => {
-                        if (err){
-                            console.log(err);
-                            callback(err);
-                        } else {
-                            callback();
-                        }
-                    }
-                    
-                    // image.getBuffer(jimp.MIME_JPEG, (err,data) => {
-                    //     if (err){
-                    //         console.log(err);
-                    //         callback(err);
-                    //     } else {
-                    //     params.Key = 'sepia/' + params.Key.split('/')[1];
-                    //     params.Body = data;
-                    //     console.log(params.Key);
-                    //     jimp.write(;
-                        // callback();
-                        // Simply putobject in sepia folder
-                        // S3.putObject(params, (err, data) => {
-                        //     if (err) { 
-                        //         console.log(err);
-                        //         callback(err);
-                        //     } else {
-                        //         callback();
-                        //     }
-                        // } );
-                    //     }
-                    // });
-                    
-                }
-            });
-        }
-    });
+    const srcImage = { Bucket: event.Records[0].s3.bucket.name, 
+                       Key: event.Records[0].s3.object.key
+    };
+    /*  using async constant to initialize download
+     *  and apply to provide this argument to the upload as well
+     */
+    async.waterfall(
+       [ async.constant(srcImage)
+       , downloadS3Object
+       , loadImageFromFile
+       , sepia
+       , imageToBuffer
+       , async.apply(uploadS3Object, srcImage)
+       ]
+       , handleError
+    );
 };

@@ -30,4 +30,4 @@ Resources:
   MyInputBucket:
     Type: 'AWS::S3::Bucket'
     Properties:
-      BucketName: mn-image-bucket
+      BucketName: milco-lambda-image-bucket
